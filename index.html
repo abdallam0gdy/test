@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>نظام الامتحان V5 (Full Lockdown)</title>
+    <title>نظام الامتحان V6 (Watermark on Top)</title>
     <style>
         /* --- 1. حظر التفاعلات (CSS Blocking) --- */
         body {
@@ -12,33 +12,23 @@
             background: #f4f4f4;
             height: 100vh;
             overflow: hidden;
-            
-            /* منع تحديد النص */
-            user-select: none;
-            -webkit-user-select: none; /* لمتصفح كروم وسفاري */
-            -moz-user-select: none;
-            -ms-user-select: none;
-            
-            /* منع اللمس المطول (القوائم المنبثقة في الموبايل) */
+            user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;
             -webkit-touch-callout: none;
         }
+        textarea, input { user-select: text; -webkit-user-select: text; }
 
-        /* استثناء: السماح بالكتابة داخل حقول الإجابة */
-        textarea, input {
-            user-select: text;
-            -webkit-user-select: text;
-        }
-
-        /* --- باقي التنسيقات (زي V4) --- */
+        /* --- تنسيقات الشاشات --- */
         .container { display: flex; justify-content: center; align-items: center; height: 100%; flex-direction: column; text-align: center; }
-        #start-screen { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 500px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
-        #exam-screen { display: none; width: 100%; height: 100%; background: white; padding: 20px; box-sizing: border-box; position: relative; overflow-y: auto; }
-        #warning-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #d32f2f; color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 10000; text-align: center; }
+        #start-screen { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 500px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); position: relative; z-index: 1; }
+        #exam-screen { display: none; width: 100%; height: 100%; background: white; padding: 20px; box-sizing: border-box; position: relative; overflow-y: auto; z-index: 1; }
+        #warning-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #d32f2f; color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 10003; text-align: center; } /* أعلى طبقة للتحذير */
         
-        /* العلامة المائية */
+        /* --- العلامة المائية (التعديل هنا) --- */
         .watermark-container {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 9998; opacity: 0.07;
+            pointer-events: none; /* عشان اللمس يعدي من خلالها */
+            z-index: 10002; /* قيمة عالية جداً عشان تبقى فوق كل حاجة */
+            opacity: 0.07;
             display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
             grid-template-rows: repeat(auto-fill, minmax(150px, 1fr)); overflow: hidden;
         }
@@ -47,14 +37,15 @@
             transform: rotate(-30deg); font-weight: bold; font-size: 14px; color: #000; white-space: nowrap;
         }
 
-        /* الإشعار الداخلي */
+        /* --- الإشعار الداخلي --- */
         #toast-notification {
             position: fixed; top: -50px; left: 50%; transform: translateX(-50%);
             background: #d32f2f; color: white; padding: 10px 20px; border-radius: 0 0 10px 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 10001; transition: top 0.3s ease-in-out; font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 10004; transition: top 0.3s ease-in-out; font-weight: bold;
         }
         #toast-notification.show { top: 0; }
         
+        /* --- الأزرار --- */
         button { padding: 12px 25px; margin: 10px; cursor: pointer; border: none; border-radius: 5px; color: white; transition: 0.3s; }
         .btn-blue { background: #007bff; } .btn-green { background: #28a745; display: none; } .btn-red { background: transparent; border: 2px solid white; }
     </style>
@@ -63,27 +54,28 @@
 
     <div id="toast-notification">⚠️ تم رصد مخالفة أمنية!</div>
 
+    <div class="watermark-container"></div>
+
     <div id="start-screen" class="container">
-        <h1>🔒 الامتحان المؤمن V5</h1>
-        <p style="color:red; font-size: 0.9em;">تم تعطيل النسخ، اللصق، واللمس المطول.</p>
+        <h1>🔒 الامتحان المؤمن V6</h1>
+        <p style="color:red; font-size: 0.9em;">العلامة المائية تغطي الشاشة بالكامل.</p>
         <button onclick="requestNotifyPermission()" id="notifyBtn" class="btn-blue">🔔 تفعيل الإشعارات</button>
         <p id="notifyStatus" style="font-size: 12px; color: gray;"></p>
         <button onclick="attemptStart()" id="startBtn" class="btn-green">🚀 ابدأ الامتحان</button>
     </div>
 
     <div id="exam-screen">
-        <div class="watermark-container"></div>
-        <div style="background: #333; color: #0f0; padding: 10px; border-radius: 5px; position: relative; z-index: 9999;">
+        <div style="background: #333; color: #0f0; padding: 10px; border-radius: 5px; position: relative;">
             ● النظام آمن - الطالب: أحمد (ممنوع النسخ)
         </div>
-        <div style="position: relative; z-index: 9999; margin-top: 20px;">
+        <div style="position: relative; margin-top: 20px;">
             <h3>جرب تنسخ الكلام ده:</h3>
             <p id="question-text">بما تفسر: لا يمكن نسخ هذا النص ولا يمكن عمل كليك يمين عليه؟</p>
             
             <h3>الإجابة:</h3>
             <textarea id="answer-box" 
                       style="width: 100%; height: 150px; border: 2px solid #ddd; padding: 10px; font-size: 18px;" 
-                      placeholder="حاول تعمل Paste هنا (لن يعمل)..."></textarea>
+                      placeholder="الكتابة مسموحة هنا، لكن العلامة المائية فوقها..."></textarea>
         </div>
     </div>
 
@@ -94,29 +86,16 @@
     </div>
 
     <script>
-        // --- 1. حظر التفاعلات (JS Blocking) ---
-        
-        // منع كليك يمين (Context Menu)
+        // --- نفس كود الجافاسكريبت السابق تماماً (بدون تعديل) ---
         document.addEventListener('contextmenu', event => event.preventDefault());
-
-        // منع النسخ والقص واللصق (Copy, Cut, Paste)
         document.addEventListener('copy', e => { e.preventDefault(); showToast("ممنوع النسخ!"); });
         document.addEventListener('cut', e => { e.preventDefault(); showToast("ممنوع القص!"); });
         document.addEventListener('paste', e => { e.preventDefault(); showToast("ممنوع اللصق!"); });
-
-        // منع اختصارات الكيبورد (Ctrl+C, Ctrl+V, Ctrl+U, F12)
         document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'u' || e.key === 'a')) {
-                e.preventDefault();
-                showToast("اختصارات الكيبورد ممنوعة");
-            }
-            if (e.keyCode === 123) { // F12
-                e.preventDefault();
-            }
+            if (e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'u' || e.key === 'a')) { e.preventDefault(); showToast("اختصارات الكيبورد ممنوعة"); }
+            if (e.keyCode === 123) { e.preventDefault(); }
         });
 
-        // --- باقي الكود (نفس V4) ---
-        
         const startScreen = document.getElementById('start-screen');
         const examScreen = document.getElementById('exam-screen');
         const warningOverlay = document.getElementById('warning-overlay');
@@ -128,65 +107,54 @@
         let isExamActive = false;
 
         function generateWatermark() {
-            for (let i = 0; i < 50; i++) {
+            watermarkContainer.innerHTML = ''; // مسح أي علامات قديمة
+            for (let i = 0; i < 60; i++) { // زيادة العدد لتغطية أفضل
                 const item = document.createElement('div');
                 item.classList.add('watermark-item');
                 item.innerText = "أحمد محمد - ID:12345";
                 watermarkContainer.appendChild(item);
             }
         }
+        // تشغيل العلامة المائية من البداية لتظهر في شاشة البدء أيضاً
+        generateWatermark();
 
         function showToast(msg) {
-            toast.innerText = "⚠️ " + msg;
-            toast.classList.add('show');
+            toast.innerText = "⚠️ " + msg; toast.classList.add('show');
             setTimeout(() => { toast.classList.remove('show'); }, 3000);
         }
-
         function requestNotifyPermission() {
             if (!("Notification" in window)) { alert("جهازك لا يدعم الإشعارات"); return; }
             Notification.requestPermission().then(permission => {
                 if (permission === "granted") {
                     notifyStatus.innerText = "تم التفعيل ✅"; notifyStatus.style.color = "green";
                     notifyBtn.style.display = "none"; startBtn.style.display = "inline-block";
-                } else {
-                    notifyStatus.innerText = "تم الرفض ❌"; notifyStatus.style.color = "red";
-                }
+                } else { notifyStatus.innerText = "تم الرفض ❌"; notifyStatus.style.color = "red"; }
             });
         }
-
         function attemptStart() {
             if (window.innerWidth < window.screen.width * 0.9) { alert("أغلق تقسيم الشاشة!"); return; }
             if (!document.hasFocus()) { alert("أغلق النوافذ المنبثقة!"); return; }
             document.documentElement.requestFullscreen().then(() => {
                 startScreen.style.display = 'none'; examScreen.style.display = 'block';
-                isExamActive = true; generateWatermark();
+                isExamActive = true;
             }).catch(err => { alert("يجب السماح بملء الشاشة"); });
         }
-
         function resumeExam() {
             if (window.innerWidth < window.screen.width * 0.9) { alert("الشاشة مقسمة!"); return; }
             document.documentElement.requestFullscreen().then(() => {
                 warningOverlay.style.display = 'none'; examScreen.style.display = 'block';
             });
         }
-
         function triggerViolation(reason) {
             if (!isExamActive) return;
-            examScreen.style.display = 'none';
-            warningOverlay.style.display = 'flex';
-            document.getElementById('violation-reason').innerText = reason;
-            showToast(reason);
-            if (Notification.permission === "granted") {
-                try { if (navigator.vibrate) navigator.vibrate([200]); new Notification("مخالفة: " + reason); } catch(e){}
-            }
+            examScreen.style.display = 'none'; warningOverlay.style.display = 'flex';
+            document.getElementById('violation-reason').innerText = reason; showToast(reason);
+            if (Notification.permission === "granted") { try { if (navigator.vibrate) navigator.vibrate([200]); new Notification("مخالفة: " + reason); } catch(e){} }
         }
-
-        // المراقبون
         window.addEventListener('resize', () => { if (isExamActive && window.innerWidth < window.screen.width * 0.9) triggerViolation("تقسيم الشاشة"); });
         document.addEventListener('visibilitychange', () => { if (isExamActive && document.hidden) triggerViolation("خروج من التطبيق"); });
         window.addEventListener('blur', () => { if (isExamActive) setTimeout(() => { if (!document.hasFocus()) triggerViolation("لمس خارجي"); }, 200); });
         document.addEventListener('fullscreenchange', () => { if (isExamActive && !document.fullscreenElement) triggerViolation("إلغاء ملء الشاشة"); });
-
     </script>
 </body>
 </html>
