@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>الامتحان المراقب + إشعارات</title>
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #f4f4f4; height: 100vh; overflow: hidden; user-select: none; }
+        .container { display: flex; justify-content: center; align-items: center; height: 100%; flex-direction: column; }
+        
+        #start-screen { background: white; padding: 40px; border-radius: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 90%; max-width: 500px; }
+        #exam-screen { display: none; width: 100%; height: 100%; background: white; padding: 20px; box-sizing: border-box; }
+        #warning-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #d32f2f; color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 99999; text-align: center; }
+        
+        button { padding: 15px 30px; font-size: 18px; margin-top: 10px; cursor: pointer; border: none; border-radius: 5px; color: white; background: #007bff; transition: 0.3s; }
+        button:hover { background: #0056b3; }
+        .btn-red { background: #ff4444; border: 2px solid white; }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen" class="container">
+        <h1>🔒 نظام الامتحان الذكي</h1>
+        <p>يجب تفعيل الإشعارات وملء الشاشة.</p>
+        
+        <button onclick="requestNotifyPermission()" id="notifyBtn">🔔 تفعيل الإشعارات أولاً</button>
+        
+        <button onclick="startExam()" id="startBtn" style="display: none; background: #28a745;">🚀 ابدأ الامتحان</button>
+        
+        <p id="statusMsg" style="color: gray; font-size: 12px; margin-top: 10px;"></p>
+    </div>
+
+    <div id="exam-screen">
+        <div style="background: #333; color: white; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
+            حالة النظام: <span style="color: #0f0;">● مراقب ونشط</span>
+        </div>
+        <h2>سؤال تجريبي:</h2>
+        <p>جرب تلمس أي حاجة بره المتصفح (نافذة منبثقة) أو تخرج خالص.</p>
+        <textarea style="width: 100%; height: 200px; font-size: 18px;" placeholder="اكتب هنا..."></textarea>
+    </div>
+
+    <div id="warning-overlay">
+        <h1 style="font-size: 4em;">⛔</h1>
+        <h1>تم رصد مخالفة!</h1>
+        <h2 id="violation-reason" style="color: yellow; background: rgba(0,0,0,0.3); padding: 5px 20px;"></h2>
+        <p>تم إرسال إشعار بمحاولة الغش.</p>
+        <button class="btn-red" onclick="resumeExam()">عودة للامتحان</button>
+    </div>
+
+    <script>
+        const startScreen = document.getElementById('start-screen');
+        const examScreen = document.getElementById('exam-screen');
+        const warningOverlay = document.getElementById('warning-overlay');
+        const notifyBtn = document.getElementById('notifyBtn');
+        const startBtn = document.getElementById('startBtn');
+        const statusMsg = document.getElementById('statusMsg');
+
+        let isExamActive = false;
+
+        // 1. طلب إذن الإشعارات
+        function requestNotifyPermission() {
+            if (!("Notification" in window)) {
+                alert("المتصفح لا يدعم الإشعارات");
+                return;
+            }
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    statusMsg.innerText = "✅ تم تفعيل الإشعارات";
+                    statusMsg.style.color = "green";
+                    notifyBtn.style.display = "none";
+                    startBtn.style.display = "inline-block";
+                } else {
+                    statusMsg.innerText = "❌ يجب الموافقة على الإشعارات للبدء";
+                    statusMsg.style.color = "red";
+                }
+            });
+        }
+
+        // 2. إرسال إشعار
+        function sendNotification(title, body) {
+            if (Notification.permission === "granted") {
+                // إنشاء الإشعار
+                const notification = new Notification(title, {
+                    body: body,
+                    icon: "https://cdn-icons-png.flaticon.com/512/564/564619.png", // أيقونة تحذير
+                    vibrate: [200, 100, 200] // اهتزاز للموبايل
+                });
+            }
+        }
+
+        // 3. بدء الامتحان
+        function startExam() {
+            document.documentElement.requestFullscreen().then(() => {
+                startScreen.style.display = 'none';
+                examScreen.style.display = 'block';
+                isExamActive = true;
+            }).catch(() => alert("يجب السماح بملء الشاشة"));
+        }
+
+        // 4. استئناف الامتحان
+        function resumeExam() {
+            document.documentElement.requestFullscreen().then(() => {
+                warningOverlay.style.display = 'none';
+                examScreen.style.display = 'block';
+            });
+        }
+
+        // 5. دالة المخالفة الموحدة
+        function triggerViolation(reason) {
+            if (!isExamActive) return;
+
+            // إظهار الشاشة الحمراء
+            examScreen.style.display = 'none';
+            warningOverlay.style.display = 'flex';
+            document.getElementById('violation-reason').innerText = reason;
+
+            // إرسال الإشعار فوراً
+            sendNotification("⚠️ تنبيه أمني", `تم رصد خروج من الامتحان: ${reason}`);
+        }
+
+        // --- المراقبون (The Watchers) ---
+
+        // أ) كشف اللمس الخارجي (Pop-up View Touch)
+        window.addEventListener('blur', () => {
+            if (isExamActive) {
+                // ننتظر لحظة لنتأكد أنه لمس حقيقي خارج الصفحة
+                setTimeout(() => {
+                    if (!document.hasFocus()) {
+                        triggerViolation("لمس تطبيق خارجي (Pop-up)");
+                    }
+                }, 100);
+            }
+        });
+
+        // ب) كشف الخروج من التبويب (Background)
+        document.addEventListener('visibilitychange', () => {
+            if (isExamActive && document.hidden) {
+                triggerViolation("خروج من التطبيق/المتصفح");
+            }
+        });
+
+        // ج) كشف تقسيم الشاشة
+        window.addEventListener('resize', () => {
+            if (isExamActive && window.innerWidth < window.screen.width * 0.9) {
+                triggerViolation("تقسيم الشاشة");
+            }
+        });
+
+        // د) كشف الخروج من Full Screen
+        document.addEventListener('fullscreenchange', () => {
+            if (isExamActive && !document.fullscreenElement) {
+                triggerViolation("إلغاء ملء الشاشة");
+            }
+        });
+
+    </script>
+</body>
+</html>
