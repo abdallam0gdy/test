@@ -3,48 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>الامتحان المراقب + إشعارات</title>
+    <title>نظام الامتحان V3 (سد الثغرات)</title>
     <style>
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #f4f4f4; height: 100vh; overflow: hidden; user-select: none; }
-        .container { display: flex; justify-content: center; align-items: center; height: 100%; flex-direction: column; }
+        .container { display: flex; justify-content: center; align-items: center; height: 100%; flex-direction: column; text-align: center; }
         
-        #start-screen { background: white; padding: 40px; border-radius: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 90%; max-width: 500px; }
+        #start-screen { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 500px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
         #exam-screen { display: none; width: 100%; height: 100%; background: white; padding: 20px; box-sizing: border-box; }
+        
+        /* شاشة المخالفة */
         #warning-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #d32f2f; color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 99999; text-align: center; }
         
-        button { padding: 15px 30px; font-size: 18px; margin-top: 10px; cursor: pointer; border: none; border-radius: 5px; color: white; background: #007bff; transition: 0.3s; }
-        button:hover { background: #0056b3; }
-        .btn-red { background: #ff4444; border: 2px solid white; }
+        button { padding: 12px 25px; font-size: 16px; margin: 10px; cursor: pointer; border: none; border-radius: 5px; color: white; transition: 0.3s; }
+        .btn-blue { background: #007bff; }
+        .btn-green { background: #28a745; display: none; } /* مخفي لحد ما يفعل الاشعارات */
+        .btn-red { background: transparent; border: 2px solid white; }
+        
+        .alert-box { background: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; font-size: 0.9em; margin-bottom: 10px; border: 1px solid #ffeeba; }
     </style>
 </head>
 <body>
 
     <div id="start-screen" class="container">
-        <h1>🔒 نظام الامتحان الذكي</h1>
-        <p>يجب تفعيل الإشعارات وملء الشاشة.</p>
+        <h1>🔒 نظام الامتحان المؤمن</h1>
+        <div class="alert-box">
+            يجب إغلاق أي نوافذ منبثقة أو تقسيم للشاشة <b>قبل</b> البدء.
+        </div>
         
-        <button onclick="requestNotifyPermission()" id="notifyBtn">🔔 تفعيل الإشعارات أولاً</button>
-        
-        <button onclick="startExam()" id="startBtn" style="display: none; background: #28a745;">🚀 ابدأ الامتحان</button>
-        
-        <p id="statusMsg" style="color: gray; font-size: 12px; margin-top: 10px;"></p>
+        <button onclick="requestNotifyPermission()" id="notifyBtn" class="btn-blue">🔔 الخطوة 1: تفعيل الإشعارات</button>
+        <p id="notifyStatus" style="font-size: 12px; color: gray;"></p>
+
+        <button onclick="attemptStart()" id="startBtn" class="btn-green">🚀 الخطوة 2: ابدأ الامتحان</button>
     </div>
 
     <div id="exam-screen">
-        <div style="background: #333; color: white; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
-            حالة النظام: <span style="color: #0f0;">● مراقب ونشط</span>
+        <div style="background: #333; color: #0f0; padding: 10px; border-radius: 5px;">
+            ● النظام آمن ويعمل
         </div>
-        <h2>سؤال تجريبي:</h2>
-        <p>جرب تلمس أي حاجة بره المتصفح (نافذة منبثقة) أو تخرج خالص.</p>
-        <textarea style="width: 100%; height: 200px; font-size: 18px;" placeholder="اكتب هنا..."></textarea>
+        <h3>أسئلة الامتحان:</h3>
+        <p>حاول الآن تقسيم الشاشة أو الخروج...</p>
+        <textarea style="width: 100%; height: 150px; border: 2px solid #ddd; padding: 10px; font-size: 18px;" placeholder="اكتب الإجابة هنا..."></textarea>
     </div>
 
     <div id="warning-overlay">
-        <h1 style="font-size: 4em;">⛔</h1>
-        <h1>تم رصد مخالفة!</h1>
-        <h2 id="violation-reason" style="color: yellow; background: rgba(0,0,0,0.3); padding: 5px 20px;"></h2>
-        <p>تم إرسال إشعار بمحاولة الغش.</p>
-        <button class="btn-red" onclick="resumeExam()">عودة للامتحان</button>
+        <h1 style="font-size: 3em;">⛔ مخالفة!</h1>
+        <h2 id="violation-reason" style="background: rgba(0,0,0,0.2); padding: 5px 15px;"></h2>
+        <p>تم إرسال إشعار للمراقب.</p>
+        <button class="btn-red" onclick="resumeExam()">تصحيح الوضع والعودة</button>
     </div>
 
     <script>
@@ -53,59 +58,84 @@
         const warningOverlay = document.getElementById('warning-overlay');
         const notifyBtn = document.getElementById('notifyBtn');
         const startBtn = document.getElementById('startBtn');
-        const statusMsg = document.getElementById('statusMsg');
+        const notifyStatus = document.getElementById('notifyStatus');
 
         let isExamActive = false;
 
-        // 1. طلب إذن الإشعارات
+        // 1. طلب الإذن (لازم عشان الاشعارات تشتغل)
         function requestNotifyPermission() {
             if (!("Notification" in window)) {
-                alert("المتصفح لا يدعم الإشعارات");
+                alert("جهازك لا يدعم الإشعارات");
                 return;
             }
             Notification.requestPermission().then(permission => {
                 if (permission === "granted") {
-                    statusMsg.innerText = "✅ تم تفعيل الإشعارات";
-                    statusMsg.style.color = "green";
+                    notifyStatus.innerText = "تم التفعيل ✅";
+                    notifyStatus.style.color = "green";
                     notifyBtn.style.display = "none";
                     startBtn.style.display = "inline-block";
+                    
+                    // تجربة إشعار فوري للتأكد
+                    new Notification("تم تفعيل نظام المراقبة", { body: "جاهز للبدء" });
                 } else {
-                    statusMsg.innerText = "❌ يجب الموافقة على الإشعارات للبدء";
-                    statusMsg.style.color = "red";
+                    notifyStatus.innerText = "تم الرفض ❌. اضغط على القفل بجوار الرابط لتفعيلها.";
+                    notifyStatus.style.color = "red";
                 }
             });
         }
 
-        // 2. إرسال إشعار
-        function sendNotification(title, body) {
-            if (Notification.permission === "granted") {
-                // إنشاء الإشعار
-                const notification = new Notification(title, {
-                    body: body,
-                    icon: "https://cdn-icons-png.flaticon.com/512/564/564619.png", // أيقونة تحذير
-                    vibrate: [200, 100, 200] // اهتزاز للموبايل
-                });
+        // 2. محاولة البدء (الفحص المسبق لسد الثغرة)
+        function attemptStart() {
+            // أ) فحص تقسيم الشاشة المسبق (Initial Split Check)
+            if (window.innerWidth < window.screen.width * 0.9) {
+                alert("⛔ خطأ: أنت تستخدم تقسيم الشاشة!\nيرجى إغلاق التطبيقات الأخرى وتكبير المتصفح أولاً.");
+                return; // امنع الدخول
             }
-        }
 
-        // 3. بدء الامتحان
-        function startExam() {
+            // ب) فحص التركيز (لو فاتح شاشة منبثقة ودايس عليها)
+            if (!document.hasFocus()) {
+                alert("⛔ خطأ: يرجى إغلاق النوافذ المنبثقة (Pop-up) أولاً.");
+                return;
+            }
+
+            // لو سليم، اطلب الفول سكرين
             document.documentElement.requestFullscreen().then(() => {
                 startScreen.style.display = 'none';
                 examScreen.style.display = 'block';
                 isExamActive = true;
-            }).catch(() => alert("يجب السماح بملء الشاشة"));
+            }).catch(err => {
+                alert("يجب السماح بملء الشاشة للعمل");
+            });
         }
 
-        // 4. استئناف الامتحان
+        // 3. دالة الاستئناف
         function resumeExam() {
+            // لازم يرجع فول سكرين + نتأكد إنه صلح الوضع
+            if (window.innerWidth < window.screen.width * 0.9) {
+                alert("مازالت الشاشة مقسمة! كبرها الأول.");
+                return;
+            }
             document.documentElement.requestFullscreen().then(() => {
                 warningOverlay.style.display = 'none';
                 examScreen.style.display = 'block';
             });
         }
 
-        // 5. دالة المخالفة الموحدة
+        // 4. إرسال الإشعار (مع اهتزاز)
+        function sendViolationNotify(reason) {
+            if (Notification.permission === "granted") {
+                try {
+                    navigator.vibrate([200, 100, 200]); // اهتزاز الموبايل
+                    new Notification("⚠️ مخالفة امتحان", {
+                        body: "السبب: " + reason,
+                        icon: "https://cdn-icons-png.flaticon.com/512/595/595067.png",
+                        tag: "violation" // عشان ميظهرش اشعارات كتير فوق بعض
+                    });
+                } catch(e) { console.log(e); }
+            }
+        }
+
+        // 5. نظام المراقبة (معدل)
         function triggerViolation(reason) {
             if (!isExamActive) return;
 
@@ -113,40 +143,41 @@
             examScreen.style.display = 'none';
             warningOverlay.style.display = 'flex';
             document.getElementById('violation-reason').innerText = reason;
-
-            // إرسال الإشعار فوراً
-            sendNotification("⚠️ تنبيه أمني", `تم رصد خروج من الامتحان: ${reason}`);
+            
+            sendViolationNotify(reason);
         }
 
-        // --- المراقبون (The Watchers) ---
+        // --- المراقبون ---
 
-        // أ) كشف اللمس الخارجي (Pop-up View Touch)
-        window.addEventListener('blur', () => {
+        // كشف تقسيم الشاشة (مستمر)
+        window.addEventListener('resize', () => {
             if (isExamActive) {
-                // ننتظر لحظة لنتأكد أنه لمس حقيقي خارج الصفحة
-                setTimeout(() => {
-                    if (!document.hasFocus()) {
-                        triggerViolation("لمس تطبيق خارجي (Pop-up)");
-                    }
-                }, 100);
+                // هامش 10% عشان اختلاف الموبايلات
+                if (window.innerWidth < window.screen.width * 0.9) {
+                    triggerViolation("تقسيم الشاشة أثناء الامتحان");
+                }
             }
         });
 
-        // ب) كشف الخروج من التبويب (Background)
+        // كشف الخروج (Tab Switching / Home Btn)
         document.addEventListener('visibilitychange', () => {
             if (isExamActive && document.hidden) {
-                triggerViolation("خروج من التطبيق/المتصفح");
+                triggerViolation("الخروج من التطبيق");
             }
         });
 
-        // ج) كشف تقسيم الشاشة
-        window.addEventListener('resize', () => {
-            if (isExamActive && window.innerWidth < window.screen.width * 0.9) {
-                triggerViolation("تقسيم الشاشة");
+        // كشف اللمس الخارجي (Pop-up)
+        window.addEventListener('blur', () => {
+            if (isExamActive) {
+                setTimeout(() => {
+                    if (!document.hasFocus()) {
+                        triggerViolation("لمس نافذة خارجية");
+                    }
+                }, 200);
             }
         });
 
-        // د) كشف الخروج من Full Screen
+        // كشف الخروج من Full Screen
         document.addEventListener('fullscreenchange', () => {
             if (isExamActive && !document.fullscreenElement) {
                 triggerViolation("إلغاء ملء الشاشة");
